@@ -1,0 +1,180 @@
+
+
+             .d88b.   .d88b.  db   dD 
+            .8P  Y8. .8P  Y8. 88 ,8P' 
+            88    88 88    88 88,8P   
+            88    88 88    88 88`8b   
+            `8b  d8' `8b  d8' 88 `88. 
+             `Y88P'   `Y88P'  YP   YD 
+
+
+Copyright (c) 2010 Robin Southern
+                                                                              
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+                                                                              
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+                                                                              
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE. 
+
+What is Ook?
+===========
+
+Ook is a minimal serialisation library for C++, it uses text files similar to
+YAML (http://www.yaml.org) to save to and load from.
+
+It organises data into key-value pairs, which are organised into "sets", each
+set can have a name or not. Each value can store a single boolean, integer,
+floating point or string, or instead as an array of booleans, integers or
+floating points. 
+
+Each ".ook" file is meant to be human editable and human readable. It only
+contains the value and key name, 
+
+
+Sample File
+===========
+
+    - showroom
+       address : "123 Fake Street,"
+                 "Uptown,"
+                 "North,"
+                 "AB12 3CD"
+       name : "Green Cars Ltd."
+    -
+       colour : "red"
+       miles : 35000
+       price : 14999.45
+       type : "hatchback"
+    -
+       colour : "blue"
+       miles : 5000
+       price : 55000.0
+       type : "sport"
+       size : [5.0, 1.2, 2.0]
+
+
+Structure
+=========
+
+Apart from indentation used in seperating set's from each other, whitespace is ignored.
+
+A set is defined as indentation of lines; more so any text that has at least one whitespace character at the beginning of a line. The beginning of the set is defined as a line which the first character is a hyphen "-" character, followed by an optional name.
+
+    - set1
+        key1A: value1A
+        key1B: value1B
+    - set2
+        key2A: value2A
+        key2B: value2B
+
+A value may be one or multiple lines, which much contain a key and value portion, seperated by a colon ":" character. 
+
+    key1: value1
+    key2: value2_line1
+          value2_line2
+
+The type of value is recognised by the markup of the value.
+
+    sample_integer: 12304
+    sample_float: 12.304
+    sample_text: "abcdef"
+    sample_bool: yes
+    
+ - Floating points must have a decimal point; .
+ - Strings are enclosed in quotations; "
+ - Array of values are enclosed in square brackets; [ ]
+ - Booleans take on the values; yes no
+ - Anything else is treated as an integer.
+
+Comments use the hash mark '#', which indicate the rest of the line is to be ignored.
+
+    sample_key: 2123 # this portion is a comment.
+
+
+Usage
+=====
+
+Serialisation
+-------------
+
+To serialise data, the Ook::File class is used. It is a container of sets, and is
+used to serialise all sets (and values). Although it has File in its
+name it can save to any STL stream, including std::cout.
+
+    File file;
+
+An Ook set is simply created by referencing it's name. If the set already exists
+then that set is returned, otherwise it is created using the name given.
+
+    Ook::Set& showroom = file["showroom"];
+
+Anonymous sets or set's without names are created differently. As they have no
+names they cannot be randomly accesed without using a Sets iterator.
+
+    Ook::Set& red_car = file.unnamed();
+
+Values of that set can be then copied into the set using the [] operator, which
+will create or use any Values as needed.
+
+    red_car["type"] = "hatchback";
+
+Array's are also copied into the set in a similar way, using a += operator on the Value instead of the set.
+
+    Ook::Value& size = red_car["size"];
+    size += 5.0f;
+    size += 1.2f;
+    size += 2.0f;
+
+
+To save the data given to the sets, simply pass on a STL stream to the serialise function
+in the Ook::File
+
+    file.serialise( std::ofstream("cars.ook", std::ios::out | std::ios::binary) );
+
+As Ook::File can use any STL stream, it can be printed to the console
+
+    file.serialise( std::cout )
+
+Unserialisation
+---------------
+
+Again using the Ook::File class, and instead using the unserialise function to read in the data from a STL string.
+
+    Ook::File file;
+ 
+    file.unserialise( std::ifstream("cars.ook", std::ios::in | std::ios::binary) );
+
+
+Data can be simply addressed directly:
+
+    std::cout << "Name: " << (std::string) file["showroom"]["name"] << "\n";
+
+As the Value has no default type, casting is required, which will call the correct operator overload (operator int, operator string, operator float, operator bool). If the type is different, then it will return the best value it can. i.e. if the type is a float, and the code is expecting an int, then the float will be casted into an integer.
+
+Even if "name" doesn't exist, due to the nature of Ook; Name will be automatically be created and given a null value, so at least some sort of value is returned. Even if it's not the one expected.
+
+
+For a more safer version, the "Sets" iterator can be used. Which iterates through given sets.
+
+    Ook::Sets all = file.all();
+
+    while(all.hasMore())
+    {
+      Ook::Set& set = all++;
+
+      if (set["colour"].isNull() == false)
+        std::cout << (std::string) set["colour"] << "\n"
+    }
+
